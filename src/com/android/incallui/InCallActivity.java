@@ -27,6 +27,8 @@ import android.content.DialogInterface.OnClickListener;
 import android.content.DialogInterface.OnCancelListener;
 import android.content.Intent;
 import android.content.res.Configuration;
+import android.database.ContentObserver;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.provider.Settings;
@@ -56,6 +58,8 @@ public class InCallActivity extends Activity {
 
     /** Use to pass 'showDialpad' from {@link #onNewIntent} to {@link #onResume} */
     private boolean mShowDialpadRequested;
+
+    private boolean mUseFullScreenCallerPhoto;
 
     private ContentObserver mSettingsObserver = new ContentObserver(new Handler()) {
         @Override
@@ -452,6 +456,21 @@ public class InCallActivity extends Activity {
         }
     }
 
+    public void updateSystemBarTranslucency() {
+        int flags = 0;
+        final Window window = getWindow();
+        final InCallPresenter.InCallState inCallState =
+                InCallPresenter.getInstance().getInCallState();
+
+        if (mUseFullScreenCallerPhoto && inCallState == InCallPresenter.InCallState.INCOMING) {
+            flags |= WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION;
+        }
+
+        window.setFlags(flags, WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS |
+                WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
+        window.getDecorView().requestFitSystemWindows();
+    }
+
     public void showPostCharWaitDialog(int callId, String chars) {
         final PostCharDialogFragment fragment = new PostCharDialogFragment(callId,  chars);
         fragment.show(getFragmentManager(), "postCharWait");
@@ -538,9 +557,10 @@ public class InCallActivity extends Activity {
         int incomingCallStyle = Settings.System.getInt(getContentResolver(),
                 Settings.System.INCOMING_CALL_STYLE,
                 Settings.System.INCOMING_CALL_STYLE_FULLSCREEN_PHOTO);
-        boolean useFullscreenCallerPhoto =
+        mUseFullScreenCallerPhoto =
                 incomingCallStyle == Settings.System.INCOMING_CALL_STYLE_FULLSCREEN_PHOTO;
-        mCallButtonFragment.setHideMode(useFullscreenCallerPhoto ? View.GONE : View.INVISIBLE);
-        mAnswerFragment.setUseTranslucentNavigationBar(useFullscreenCallerPhoto);
+        mCallButtonFragment.setHideMode(mUseFullScreenCallerPhoto ? View.GONE : View.INVISIBLE);
+        mCallButtonFragment.getPresenter().setShowButtonsIfIdle(!mUseFullScreenCallerPhoto);
+        updateSystemBarTranslucency();
     }
 }
